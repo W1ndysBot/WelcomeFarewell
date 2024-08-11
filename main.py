@@ -1,8 +1,4 @@
 # script/WelcomeFarewell/main.py
-# 示例脚本
-# 本脚本写好了基本的函数，直接在函数中编写逻辑即可，必要的时候可以修改函数名
-# 注意：WelcomeFarewell 是具体功能，请根据实际情况一键替换即可
-# 注意：WelcomeFarewell 是函数名称，请根据实际情况一键替换即可
 
 import logging
 import os
@@ -53,6 +49,23 @@ def save_WelcomeFarewell_status(group_id, status):
     save_switch(group_id, "欢迎欢送", status)
 
 
+# 保存自定义欢迎词
+def save_custom_welcome_message(group_id, message):
+    with open(os.path.join(DATA_DIR, f"{group_id}.txt"), "w", encoding="utf-8") as file:
+        file.write(message)
+
+
+# 加载自定义欢迎词
+def load_custom_welcome_message(group_id):
+    try:
+        with open(
+            os.path.join(DATA_DIR, f"{group_id}.txt"), "r", encoding="utf-8"
+        ) as file:
+            return file.read()
+    except FileNotFoundError:
+        return None
+
+
 # 入群欢迎退群欢送管理函数
 async def WelcomeFarewell_manage(websocket, msg):
     user_id = msg.get("user_id")
@@ -91,6 +104,14 @@ async def WelcomeFarewell_manage(websocket, msg):
                     group_id,
                     f"[CQ:reply,id={message_id}]已关闭入群欢迎和退群欢送。",
                 )
+        elif raw_message.startswith("wf-set "):  # 检测设置欢迎词命令
+            custom_message = raw_message[len("wf-set ") :]
+            save_custom_welcome_message(group_id, custom_message)
+            await send_group_msg(
+                websocket,
+                group_id,
+                f"[CQ:reply,id={message_id}]已设置自定义欢迎词\n欢迎词为：{custom_message}",
+            )
 
 
 # 群通知处理函数
@@ -104,12 +125,15 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
         sub_type = msg.get("sub_type")
         if load_WelcomeFarewell_status(group_id):
             if sub_type == "approve" or sub_type == "invite":
-
-                welcome_message = f"欢迎[CQ:at,qq={user_id}]入群"
+                custom_welcome = f"欢迎[CQ:at,qq={user_id}]入群\n{load_custom_welcome_message(group_id)}"
+                welcome_message = (
+                    custom_welcome
+                    if custom_welcome
+                    else f"欢迎[CQ:at,qq={user_id}]入群"
+                )
                 await send_group_msg(websocket, group_id, f"{welcome_message}")
 
             elif sub_type == "kick":
-
                 farewell_message = f"{user_id} 已被踢出群聊🎉🎉🎉"
                 if farewell_message:
                     await send_group_msg(websocket, group_id, f"{farewell_message}")
