@@ -45,12 +45,12 @@ def is_authorized(role, user_id):
 
 # 查看功能开关状态
 def load_WelcomeFarewell_status(group_id):
-    return load_switch(group_id, "WelcomeFarewell")
+    return load_switch(group_id, "欢迎欢送")
 
 
 # 保存功能开关状态
 def save_WelcomeFarewell_status(group_id, status):
-    save_switch(group_id, "WelcomeFarewell", status)
+    save_switch(group_id, "欢迎欢送", status)
 
 
 # 入群欢迎退群欢送管理函数
@@ -63,29 +63,29 @@ async def WelcomeFarewell_manage(websocket, msg):
 
     # 开启入群欢迎
     if is_authorized(role, user_id):  # 修复 is_authorized 调用
-        if raw_message == "WF -on":
-            if load_switch(group_id, "WelcomeFarewell"):
+        if raw_message == "wf-on":
+            if load_switch(group_id, "欢迎欢送"):
                 await send_group_msg(
                     websocket,
                     group_id,
                     f"[CQ:reply,id={message_id}]入群欢迎和退群欢送已经开启了，无需重复开启。",
                 )
             else:
-                save_switch(group_id, "WelcomeFarewell", True)
+                save_switch(group_id, "欢迎欢送", True)
                 await send_group_msg(
                     websocket,
                     group_id,
                     f"[CQ:reply,id={message_id}]已开启入群欢迎和退群欢送。",
                 )
-        elif raw_message == "WF -off":
-            if not load_switch(group_id, "WelcomeFarewell"):
+        elif raw_message == "wf-off":
+            if not load_switch(group_id, "欢迎欢送"):
                 await send_group_msg(
                     websocket,
                     group_id,
                     f"[CQ:reply,id={message_id}]入群欢迎和退群欢送已经关闭了，无需重复关闭。",
                 )
             else:
-                save_switch(group_id, "WelcomeFarewell", False)
+                save_switch(group_id, "欢迎欢送", False)
                 await send_group_msg(
                     websocket,
                     group_id,
@@ -96,6 +96,9 @@ async def WelcomeFarewell_manage(websocket, msg):
 # 群通知处理函数
 async def handle_WelcomeFarewell_group_notice(websocket, msg):
     try:
+        # 确保数据目录存在
+        os.makedirs(DATA_DIR, exist_ok=True)
+
         user_id = msg.get("user_id")
         group_id = msg.get("group_id")
         sub_type = msg.get("sub_type")
@@ -119,13 +122,3 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
     except Exception as e:
         logging.error(f"处理WelcomeFarewell群通知失败: {e}")
         return
-
-
-async def WelcomeFarewell_main(websocket, msg):
-
-    # 确保数据目录存在
-    os.makedirs(DATA_DIR, exist_ok=True)
-
-    # 根据消息类型执行不同的函数，一般按照消息类型写不同的功能，这里一般只需要一个函数，删除多余即可
-    # 如果需要多个函数，请使用asyncio.gather并发执行
-    await handle_WelcomeFarewell_group_notice(websocket, msg)
