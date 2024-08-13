@@ -12,7 +12,7 @@ sys.path.append(
 
 from app.config import owner_id
 from app.api import *
-from app.scripts.GroupSwitch.main import *
+from app.switch import load_switch, save_switch
 
 # 数据存储路径，实际开发时，请将WelcomeFarewell替换为具体的数据存放路径
 DATA_DIR = os.path.join(
