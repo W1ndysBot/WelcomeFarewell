@@ -72,10 +72,10 @@ async def WelcomeFarewell_manage(websocket, msg):
     group_id = msg.get("group_id")
     raw_message = msg.get("raw_message")
     message_id = msg.get("message_id")
-    role = msg.get("role")
+    role = str(msg.get("sender", {}).get("role"))
 
     # 开启入群欢迎
-    if is_authorized(role, user_id):  # 修复 is_authorized 调用
+    if is_authorized(role, user_id):
         if raw_message == "wf-on":
             if load_switch(group_id, "欢迎欢送"):
                 await send_group_msg(
