@@ -15,6 +15,7 @@ sys.path.append(
 from app.config import owner_id
 from app.api import *
 from app.switch import load_switch, save_switch
+from app.scripts.BlacklistSystem.main import is_blacklisted
 
 # 数据存储路径，实际开发时，请将WelcomeFarewell替换为具体的数据存放路径
 DATA_DIR = os.path.join(
@@ -165,8 +166,12 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
         user_id = str(msg.get("user_id"))
         group_id = str(msg.get("group_id"))
         sub_type = str(msg.get("sub_type"))
-        if load_WelcomeFarewell_status(group_id):
 
+        # 检查是否在黑名单，如果在黑名单，则不发送欢迎词
+        if is_blacklisted(group_id, user_id):
+            return
+
+        if load_WelcomeFarewell_status(group_id):
             if sub_type == "approve" or sub_type == "invite":
                 join_time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                 save_join_time(group_id, user_id, join_time_str)
