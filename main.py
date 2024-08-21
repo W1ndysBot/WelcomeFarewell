@@ -175,9 +175,7 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
             if sub_type == "approve" or sub_type == "invite":
                 join_time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                 save_join_time(group_id, user_id, join_time_str)
-                welcome_message = (
-                    f"欢迎[CQ:at,qq={user_id}]入群\n入群时间：{join_time_str}"
-                )
+                welcome_message = f"欢迎[CQ:at,qq={user_id}]入群\n{load_custom_welcome_message(group_id)}\n入群时间：{join_time_str}"
                 await send_group_msg(websocket, group_id, welcome_message)
             else:
                 stranger_info = await get_stranger_info(websocket, user_id)
