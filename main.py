@@ -147,8 +147,8 @@ async def WelcomeFarewell_manage(websocket, msg):
                     group_id,
                     f"[CQ:reply,id={message_id}]已关闭入群欢迎和退群欢送。",
                 )
-        elif raw_message.startswith("wf-set "):  # 检测设置欢迎词命令
-            custom_message = raw_message[len("wf-set ") :]
+        elif raw_message.startswith("wf-set"):  # 检测设置欢迎词命令
+            custom_message = raw_message[len("wf-set") :]
             save_custom_welcome_message(group_id, custom_message)
             await send_group_msg(
                 websocket,
