@@ -168,7 +168,7 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
         sub_type = str(msg.get("sub_type"))
 
         # 限定范围，只处理入群和退群事件
-        if sub_type != "group_increase" or sub_type != "group_decrease":
+        if sub_type != "group_increase" and sub_type != "group_decrease":
             return
 
         # 检查是否在黑名单，如果在黑名单，则不发送欢迎词
