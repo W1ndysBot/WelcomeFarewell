@@ -186,7 +186,7 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
                 await send_group_msg(websocket, group_id, welcome_message)
             else:
                 stranger_info = await get_stranger_info(websocket, user_id)
-                nickname = stranger_info.get("data", {}).get("nick", None)
+                nickname = stranger_info.get("nick", None)
                 if sub_type == "kick":
                     farewell_message = f"<{nickname}>{user_id} 已被踢出群聊🎉🎉🎉"
                     if farewell_message:
