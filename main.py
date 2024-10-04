@@ -6,6 +6,8 @@ import os
 import sys
 import asyncio
 import json
+import sqlite3
+import re
 
 # 添加项目根目录到sys.path
 sys.path.append(
@@ -23,6 +25,9 @@ DATA_DIR = os.path.join(
     "data",
     "WelcomeFarewell",
 )
+
+# 数据库路径
+DB_PATH = os.path.join(DATA_DIR, "welcome_farewell.db")
 
 
 # 是否是群主
@@ -43,49 +48,48 @@ def is_authorized(role, user_id):
 
 
 # 查看功能开关状态
-def load_WelcomeFarewell_status(group_id):
-    return load_switch(group_id, "欢迎欢送")
+def load_status(group_id, feature):
+    return load_switch(group_id, feature)
 
 
 # 保存功能开关状态
-def save_WelcomeFarewell_status(group_id, status):
-    save_switch(group_id, "欢迎欢送", status)
+def save_status(group_id, feature, status):
+    save_switch(group_id, feature, status)
 
 
-# 保存自定义欢迎词
-def save_custom_welcome_message(group_id, message):
-    with open(os.path.join(DATA_DIR, f"{group_id}.txt"), "w", encoding="utf-8") as file:
+# 保存自定义消息
+def save_custom_message(group_id, feature, message):
+    with open(
+        os.path.join(DATA_DIR, f"{group_id}_{feature}.txt"), "w", encoding="utf-8"
+    ) as file:
         file.write(message)
 
 
-# 加载自定义欢迎词
-def load_custom_welcome_message(group_id):
+# 加载自定义消息
+def load_custom_message(group_id, feature):
     try:
         with open(
-            os.path.join(DATA_DIR, f"{group_id}.txt"), "r", encoding="utf-8"
+            os.path.join(DATA_DIR, f"{group_id}_{feature}.txt"), "r", encoding="utf-8"
         ) as file:
             return file.read()
     except FileNotFoundError:
         return None
 
 
+# 保存入群时间到数据库
 def save_join_time(group_id, user_id, join_time):
-    file_path = os.path.join(DATA_DIR, f"{group_id}.json")
     try:
-        # 确保文件存在
-        if not os.path.exists(file_path):
-            data = {}
-        else:
-            # 读取现有数据
-            with open(file_path, "r", encoding="utf-8") as file:
-                data = json.load(file)
-
-        # 更新数据
-        data[user_id] = join_time
-
-        # 保存数据
-        with open(file_path, "w", encoding="utf-8") as file:
-            json.dump(data, file)
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO join_times (group_id, user_id, join_time)
+            VALUES (?, ?, ?)
+        """,
+            (group_id, user_id, join_time),
+        )
+        conn.commit()
+        conn.close()
     except Exception as e:
         logging.error(f"记录{group_id}入群时间失败: {e}")
         return None
@@ -93,17 +97,19 @@ def save_join_time(group_id, user_id, join_time):
 
 # 读取入群时间
 def load_join_time(group_id, user_id):
-    file_path = os.path.join(DATA_DIR, f"{group_id}.json")
     try:
-        # 如果文件不存在,创建一个空的JSON文件
-        if not os.path.exists(file_path):
-            with open(file_path, "w", encoding="utf-8") as file:
-                json.dump({}, file)
-
-        # 读取文件内容
-        with open(file_path, "r", encoding="utf-8") as file:
-            data = json.load(file)
-            return data.get(str(user_id), None)
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT join_time FROM join_times
+            WHERE group_id = ? AND user_id = ?
+        """,
+            (group_id, user_id),
+        )
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else None
     except Exception as e:
         logging.error(f"读取{group_id}入群时间失败: {e}")
         return None
@@ -117,44 +123,122 @@ async def WelcomeFarewell_manage(websocket, msg):
     message_id = msg.get("message_id")
     role = str(msg.get("sender", {}).get("role"))
 
-    # 开启入群欢迎
+    # 菜单
+    if raw_message == "welcomefarewell":
+        await send_group_msg(
+            websocket,
+            group_id,
+            f"[CQ:reply,id={message_id}]WelcomeFarewell 总菜单\n\n"
+            "1. 功能开关命令\n"
+            "   - wfon: 开启入群欢迎\n"
+            "   - wfoff: 关闭入群欢迎\n"
+            "   - ffon: 开启退群欢送\n"
+            "   - ffoff: 关闭退群欢送\n\n"
+            "2. 自定义消息设置\n"
+            "   - welcomeset <自定义欢迎词>: 设置自定义入群欢迎词\n"
+            "   - farewellset <自定义欢送词>: 设置自定义退群欢送词\n\n"
+            "3. 功能描述\n"
+            "   - 入群欢迎: 当新成员加入群聊时，发送欢迎消息\n"
+            "   - 退群欢送: 当成员离开群聊时，发送欢送消息\n\n"
+            "4. 注意事项\n"
+            "   - 只有管理员或群主可以使用以上命令\n"
+            "   - 自定义消息中可以包含 CQ 码\n"
+            "   - 系统会自动记录成员的入群时间和退群时间\n\n"
+            "5. 其他功能\n"
+            "   - 黑名单检测: 当入群时，如果用户在黑名单中，则不发送欢迎词，并且直接踢出",
+        )
+
     if is_authorized(role, user_id):
         if raw_message == "wfon":
-            if load_switch(group_id, "欢迎欢送"):
+            if load_status(group_id, "欢迎"):
                 await send_group_msg(
                     websocket,
                     group_id,
-                    f"[CQ:reply,id={message_id}]入群欢迎和退群欢送已经开启了，无需重复开启。",
+                    f"[CQ:reply,id={message_id}]入群欢迎已经开启了，无需重复开启。",
                 )
             else:
-                save_switch(group_id, "欢迎欢送", True)
+                save_status(group_id, "欢迎", True)
                 await send_group_msg(
                     websocket,
                     group_id,
-                    f"[CQ:reply,id={message_id}]已开启入群欢迎和退群欢送。",
+                    f"[CQ:reply,id={message_id}]已开启入群欢迎。",
                 )
         elif raw_message == "wfoff":
-            if not load_switch(group_id, "欢迎欢送"):
+            if not load_status(group_id, "欢迎"):
                 await send_group_msg(
                     websocket,
                     group_id,
-                    f"[CQ:reply,id={message_id}]入群欢迎和退群欢送已经关闭了，无需重复关闭。",
+                    f"[CQ:reply,id={message_id}]入群欢迎已经关闭了，无需重复关闭。",
                 )
             else:
-                save_switch(group_id, "欢迎欢送", False)
+                save_status(group_id, "欢迎", False)
                 await send_group_msg(
                     websocket,
                     group_id,
-                    f"[CQ:reply,id={message_id}]已关闭入群欢迎和退群欢送。",
+                    f"[CQ:reply,id={message_id}]已关闭入群欢迎。",
                 )
-        elif raw_message.startswith("wfset"):  # 检测设置欢迎词命令
-            custom_message = raw_message[len("wfset") :]
-            save_custom_welcome_message(group_id, custom_message)
+        elif raw_message == "ffon":
+            if load_status(group_id, "欢送"):
+                await send_group_msg(
+                    websocket,
+                    group_id,
+                    f"[CQ:reply,id={message_id}]退群欢送已经开启了，无需重复开启。",
+                )
+            else:
+                save_status(group_id, "欢送", True)
+                await send_group_msg(
+                    websocket,
+                    group_id,
+                    f"[CQ:reply,id={message_id}]已开启退群欢送。",
+                )
+        elif raw_message == "ffoff":
+            if not load_status(group_id, "欢送"):
+                await send_group_msg(
+                    websocket,
+                    group_id,
+                    f"[CQ:reply,id={message_id}]退群欢送已经关闭了，无需重复关闭。",
+                )
+            else:
+                save_status(group_id, "欢送", False)
+                await send_group_msg(
+                    websocket,
+                    group_id,
+                    f"[CQ:reply,id={message_id}]已关闭退群欢送。",
+                )
+        elif raw_message.startswith("welcomeset"):
+            custom_message = raw_message[len("welcomeset") :].strip()
+            save_custom_message(group_id, "欢迎", custom_message)
             await send_group_msg(
                 websocket,
                 group_id,
                 f"[CQ:reply,id={message_id}]已设置自定义欢迎词\n欢迎词为：{custom_message}",
             )
+        elif raw_message.startswith("farewellset"):
+            custom_message = raw_message[len("farewellset") :].strip()
+            save_custom_message(group_id, "欢送", custom_message)
+            await send_group_msg(
+                websocket,
+                group_id,
+                f"[CQ:reply,id={message_id}]已设置自定义欢送词\n欢送词为：{custom_message}",
+            )
+
+
+# 初始化数据库
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS join_times (
+            group_id TEXT,
+            user_id TEXT,
+            join_time TEXT,
+            PRIMARY KEY (group_id, user_id)
+        )
+    """
+    )
+    conn.commit()
+    conn.close()
 
 
 # 群通知处理函数
@@ -162,6 +246,8 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
     try:
         # 确保数据目录存在
         os.makedirs(DATA_DIR, exist_ok=True)
+
+        init_db()
 
         user_id = str(msg.get("user_id"))
         group_id = str(msg.get("group_id"))
@@ -176,27 +262,44 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
         if is_blacklisted(group_id, user_id):
             return
 
-        if load_WelcomeFarewell_status(group_id):
+        if load_status(group_id, "欢迎") and notice_type == "group_increase":
+
             member_info = await get_group_member_info(websocket, group_id, user_id)
             join_time_str = get_group_member_join_time(group_id, user_id, member_info)
-            if sub_type == "approve" or sub_type == "invite" or sub_type == "add":
+            save_join_time(group_id, user_id, join_time_str)
 
-                welcome_message = f"欢迎[CQ:at,qq={user_id}]入群\n{load_custom_welcome_message(group_id)}\n入群时间：{join_time_str}"
-                welcome_message = welcome_message.replace("&#91;", f"[")
-                welcome_message = welcome_message.replace("&#93;", f"]")
-                await send_group_msg(websocket, group_id, welcome_message)
+            custom_welcome_message = load_custom_message(group_id, "欢迎")
+            if custom_welcome_message:
+                welcome_message = f"欢迎[CQ:at,qq={user_id}]入群\n{custom_welcome_message}\n入群时间：{join_time_str}"
             else:
-                stranger_info = await get_stranger_info(websocket, user_id)
-                nickname = stranger_info.get("nick", None)
-                if sub_type == "kick":
-                    farewell_message = f"<{nickname}>{user_id} 已被踢出群聊🎉🎉🎉"
-                    if farewell_message:
-                        await send_group_msg(websocket, group_id, f"{farewell_message}")
+                welcome_message = (
+                    f"欢迎[CQ:at,qq={user_id}]入群\n入群时间：{join_time_str}"
+                )
+            welcome_message = re.sub(r"&#91;", "[", welcome_message)
+            welcome_message = re.sub(r"&#93;", "]", welcome_message)
+            await send_group_msg(websocket, group_id, welcome_message)
 
-                elif sub_type == "leave":
+        elif load_status(group_id, "欢送") and notice_type == "group_decrease":
+
+            member_info = await get_group_member_info(websocket, group_id, user_id)
+            nickname = member_info.get("data", {}).get("nickname", None)
+            join_time_str = load_join_time(group_id, user_id)
+
+            if sub_type == "kick":
+                farewell_message = f"<{nickname}>{user_id} 已被踢出群聊🎉🎉🎉"
+                if farewell_message:
+                    await send_group_msg(websocket, group_id, f"{farewell_message}")
+
+            elif sub_type == "leave":
+                custom_farewell_message = load_custom_message(group_id, "欢送")
+                if custom_farewell_message:
+                    farewell_message = f"<{nickname}>{user_id} 离开了这个群\n{custom_farewell_message}\n入群时间{join_time_str}\n退群时间{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
+                else:
                     farewell_message = f"<{nickname}>{user_id} 离开了这个群\n入群时间{join_time_str}\n退群时间{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
-                    if farewell_message:
-                        await send_group_msg(websocket, group_id, f"{farewell_message}")
+                if farewell_message:
+                    farewell_message = re.sub(r"&#91;", "[", farewell_message)
+                    farewell_message = re.sub(r"&#93;", "]", farewell_message)
+                    await send_group_msg(websocket, group_id, f"{farewell_message}")
 
     except Exception as e:
         logging.error(f"处理WelcomeFarewell群通知失败: {e}")
