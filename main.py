@@ -119,7 +119,7 @@ async def WelcomeFarewell_manage(websocket, msg):
 
     # 开启入群欢迎
     if is_authorized(role, user_id):
-        if raw_message == "wf-on":
+        if raw_message == "wfon":
             if load_switch(group_id, "欢迎欢送"):
                 await send_group_msg(
                     websocket,
@@ -133,7 +133,7 @@ async def WelcomeFarewell_manage(websocket, msg):
                     group_id,
                     f"[CQ:reply,id={message_id}]已开启入群欢迎和退群欢送。",
                 )
-        elif raw_message == "wf-off":
+        elif raw_message == "wfoff":
             if not load_switch(group_id, "欢迎欢送"):
                 await send_group_msg(
                     websocket,
@@ -147,8 +147,8 @@ async def WelcomeFarewell_manage(websocket, msg):
                     group_id,
                     f"[CQ:reply,id={message_id}]已关闭入群欢迎和退群欢送。",
                 )
-        elif raw_message.startswith("wf-set"):  # 检测设置欢迎词命令
-            custom_message = raw_message[len("wf-set") :]
+        elif raw_message.startswith("wfset"):  # 检测设置欢迎词命令
+            custom_message = raw_message[len("wfset") :]
             save_custom_welcome_message(group_id, custom_message)
             await send_group_msg(
                 websocket,
@@ -177,9 +177,10 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
             return
 
         if load_WelcomeFarewell_status(group_id):
+            member_info = await get_group_member_info(websocket, group_id, user_id)
+            join_time_str = get_group_member_join_time(group_id, user_id, member_info)
             if sub_type == "approve" or sub_type == "invite" or sub_type == "add":
-                join_time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                save_join_time(group_id, user_id, join_time_str)
+
                 welcome_message = f"欢迎[CQ:at,qq={user_id}]入群\n{load_custom_welcome_message(group_id)}\n入群时间：{join_time_str}"
                 welcome_message = welcome_message.replace("&#91;", f"[")
                 welcome_message = welcome_message.replace("&#93;", f"]")
@@ -193,7 +194,7 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
                         await send_group_msg(websocket, group_id, f"{farewell_message}")
 
                 elif sub_type == "leave":
-                    farewell_message = f"<{nickname}>{user_id} 离开了这个群\n入群时间{load_join_time(group_id, user_id)}\n退群时间{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
+                    farewell_message = f"<{nickname}>{user_id} 离开了这个群\n入群时间{join_time_str}\n退群时间{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
                     if farewell_message:
                         await send_group_msg(websocket, group_id, f"{farewell_message}")
 
