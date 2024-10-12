@@ -264,8 +264,7 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
 
         if load_status(group_id, "欢迎") and notice_type == "group_increase":
 
-            member_info = await get_group_member_info(websocket, group_id, user_id)
-            join_time_str = get_group_member_join_time(group_id, user_id, member_info)
+            join_time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             save_join_time(group_id, user_id, join_time_str)
 
             custom_welcome_message = load_custom_message(group_id, "欢迎")
