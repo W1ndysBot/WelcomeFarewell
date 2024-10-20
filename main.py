@@ -207,7 +207,7 @@ async def WelcomeFarewell_manage(websocket, msg):
                 )
         elif raw_message.startswith("welcomeset"):
             custom_message = raw_message[len("welcomeset") :].strip()
-            save_custom_message(group_id, "欢迎", custom_message)
+            save_custom_message(group_id, "welcome", custom_message)
             await send_group_msg(
                 websocket,
                 group_id,
@@ -215,7 +215,7 @@ async def WelcomeFarewell_manage(websocket, msg):
             )
         elif raw_message.startswith("farewellset"):
             custom_message = raw_message[len("farewellset") :].strip()
-            save_custom_message(group_id, "欢送", custom_message)
+            save_custom_message(group_id, "farewell", custom_message)
             await send_group_msg(
                 websocket,
                 group_id,
