@@ -279,26 +279,23 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
             await send_group_msg(websocket, group_id, welcome_message)
 
         elif load_status(group_id, "欢送") and notice_type == "group_decrease":
-
-            member_info = await get_group_member_info(websocket, group_id, user_id)
-            nickname = member_info.get("data", {}).get("nickname", None)
             join_time_str = load_join_time(group_id, user_id)
 
             if sub_type == "kick":
-                farewell_message = f"<{nickname}>{user_id} 已被踢出群聊🎉🎉🎉"
+                farewell_message = f"{user_id} 已被踢出群聊🎉🎉🎉"
                 if farewell_message:
-                    await send_group_msg(websocket, group_id, f"{farewell_message}")
+                    await send_group_msg(websocket, group_id, farewell_message)
 
             elif sub_type == "leave":
                 custom_farewell_message = load_custom_message(group_id, "farewell")
                 if custom_farewell_message:
-                    farewell_message = f"<{nickname}>{user_id} 离开了这个群\n{custom_farewell_message}\n入群时间{join_time_str}\n退群时间{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
+                    farewell_message = f"{user_id} 离开了这个群\n{custom_farewell_message}\n入群时间{join_time_str}\n退群时间{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
                 else:
-                    farewell_message = f"<{nickname}>{user_id} 离开了这个群\n入群时间{join_time_str}\n退群时间{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
+                    farewell_message = f"{user_id} 离开了这个群\n入群时间{join_time_str}\n退群时间{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
                 if farewell_message:
                     farewell_message = re.sub(r"&#91;", "[", farewell_message)
                     farewell_message = re.sub(r"&#93;", "]", farewell_message)
-                    await send_group_msg(websocket, group_id, f"{farewell_message}")
+                    await send_group_msg(websocket, group_id, farewell_message)
 
     except Exception as e:
         logging.error(f"处理WelcomeFarewell群通知失败: {e}")
