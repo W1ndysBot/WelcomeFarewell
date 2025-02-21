@@ -327,8 +327,7 @@ async def handle_events(websocket, msg):
 
         # 处理通知事件
         elif post_type == "notice":
-            if msg.get("notice_type") == "group":
-                await handle_WelcomeFarewell_group_notice(websocket, msg)
+            await handle_WelcomeFarewell_group_notice(websocket, msg)
 
     except Exception as e:
         error_type = {
