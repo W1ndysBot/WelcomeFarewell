@@ -321,82 +321,14 @@ async def handle_events(websocket, msg):
         elif post_type == "message":
             message_type = msg.get("message_type")
             if message_type == "group":
-                group_id = str(msg.get("group_id", ""))
-                message_id = str(msg.get("message_id", ""))
-                raw_message = str(msg.get("raw_message", ""))
-                user_id = str(msg.get("user_id", ""))
-                role = str(msg.get("sender", {}).get("role", ""))
-
-                # 处理欢迎词相关命令
-                if raw_message.startswith("welcome") or raw_message.startswith("欢迎"):
-                    # TODO: 实现欢迎词相关命令处理
-                    pass
+                await WelcomeFarewell_manage(websocket, msg)
             elif message_type == "private":
                 return
 
         # 处理通知事件
         elif post_type == "notice":
             if msg.get("notice_type") == "group":
-                user_id = str(msg.get("user_id"))
-                group_id = str(msg.get("group_id"))
-                sub_type = str(msg.get("sub_type"))
-                notice_type = str(msg.get("notice_type"))
-
-                # 限定范围，只处理入群和退群事件
-                if notice_type == "group_increase" or notice_type == "group_decrease":
-                    # 检查是否在黑名单，如果在黑名单，则不发送欢迎词
-                    if not is_blacklisted(group_id, user_id):
-                        if (
-                            load_status(group_id, "欢迎")
-                            and notice_type == "group_increase"
-                        ):
-                            join_time_str = time.strftime(
-                                "%Y-%m-%d %H:%M:%S", time.localtime()
-                            )
-                            save_join_time(group_id, user_id, join_time_str)
-
-                            custom_welcome_message = load_custom_message(
-                                group_id, "welcome"
-                            )
-                            if custom_welcome_message:
-                                welcome_message = f"欢迎[CQ:at,qq={user_id}]入群\n{custom_welcome_message}\n入群时间：{join_time_str}"
-                            else:
-                                welcome_message = f"欢迎[CQ:at,qq={user_id}]入群\n入群时间：{join_time_str}"
-                            welcome_message = re.sub(r"&#91;", "[", welcome_message)
-                            welcome_message = re.sub(r"&#93;", "]", welcome_message)
-                            await send_group_msg(websocket, group_id, welcome_message)
-
-                        elif (
-                            load_status(group_id, "欢送")
-                            and notice_type == "group_decrease"
-                        ):
-                            join_time_str = load_join_time(group_id, user_id)
-
-                            if sub_type == "kick":
-                                farewell_message = f"{user_id} 已被踢出群聊🎉🎉🎉"
-                                if farewell_message:
-                                    await send_group_msg(
-                                        websocket, group_id, farewell_message
-                                    )
-
-                            elif sub_type == "leave":
-                                custom_farewell_message = load_custom_message(
-                                    group_id, "farewell"
-                                )
-                                if custom_farewell_message:
-                                    farewell_message = f"{user_id} 离开了这个群\n{custom_farewell_message}\n入群时间{join_time_str}\n退群时间{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
-                                else:
-                                    farewell_message = f"{user_id} 离开了这个群\n入群时间{join_time_str}\n退群时间{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
-                                if farewell_message:
-                                    farewell_message = re.sub(
-                                        r"&#91;", "[", farewell_message
-                                    )
-                                    farewell_message = re.sub(
-                                        r"&#93;", "]", farewell_message
-                                    )
-                                    await send_group_msg(
-                                        websocket, group_id, farewell_message
-                                    )
+                await handle_WelcomeFarewell_group_notice(websocket, msg)
 
     except Exception as e:
         error_type = {
