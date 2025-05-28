@@ -269,11 +269,9 @@ async def handle_WelcomeFarewell_group_notice(websocket, msg):
 
             custom_welcome_message = load_custom_message(group_id, "welcome")
             if custom_welcome_message:
-                welcome_message = f"欢迎[CQ:at,qq={user_id}]入群\n{custom_welcome_message}\n入群时间：{join_time_str}"
+                welcome_message = f"欢迎[CQ:at,qq={user_id}]({user_id})入群\n{custom_welcome_message}\n入群时间：{join_time_str}"
             else:
-                welcome_message = (
-                    f"欢迎[CQ:at,qq={user_id}]入群\n入群时间：{join_time_str}"
-                )
+                welcome_message = f"欢迎[CQ:at,qq={user_id}]({user_id})入群\n入群时间：{join_time_str}"
             welcome_message = re.sub(r"&#91;", "[", welcome_message)
             welcome_message = re.sub(r"&#93;", "]", welcome_message)
             await send_group_msg(websocket, group_id, welcome_message)
